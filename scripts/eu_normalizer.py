@@ -1,6 +1,6 @@
 import re
 from tqdm import tqdm
-import corpus_utils as cu
+# import corpus_utils as cu
 
 class TextNormalizer:
     def __init__(self, lang: str, tag: str = "text", cp: bool = False):
@@ -56,7 +56,7 @@ class TextNormalizer:
             allowed_chars += r"\.\,\?\¿\¡\!\;\:"
 
         allowed_chars_pattern = f"[^{re.escape(allowed_chars)}]"
-        item[self.tag] = re.sub(allowed_chars_pattern, " ", item[self.tag])
+        item[self.tag] = re.sub(allowed_chars_pattern, "", item[self.tag])
         item[self.tag] = re.sub(r" +", " ", item[self.tag]).strip()
         if not self.cp:
             item[self.tag] = item[self.tag].lower()
@@ -80,13 +80,13 @@ class TextNormalizer:
         print(f"Sentences with acronyms elminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)")
         return clean_data
 
-def main():
-    json = "example_eu.json"
-    data = cu.read_manifest(f"./manifests/{json}")
-    eu_normalizer = TextNormalizer(lang='eu', cp=False)
-    clean_data = eu_normalizer.clean_sentences(data)
-    json_clean=json.replace(".json","_clean.json")
-    cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
+# def main():
+#     json = "example_eu.json"
+#     data = cu.read_manifest(f"./manifests/{json}")
+#     eu_normalizer = TextNormalizer(lang='eu', cp=False)
+#     clean_data = eu_normalizer.clean_sentences(data)
+#     json_clean=json.replace(".json","_clean.json")
+#     cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
 
-if __name__=="__main__":
-    main()
+# if __name__=="__main__":
+#     main()
