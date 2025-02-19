@@ -36,7 +36,7 @@ class TextNormalizer:
             r"[υ]": "u", r"[φ]": "f", r"[χ]": "j", r"[ψ]": "ps", r"[ÈËÊЕЭ]": "E", r"[АÃÂÀÄÅ]": "A",
             r"[ÙÛŪ]": "U", r"[ÔÖÒÕØΟ]": "O", r"[ÇĆČ]": "C", r"[ÏÌÎĪ]": "I", r"[ÑŃǸ]": "Ñ", r"[ÝŶŸ]": "Y",
             r"[èëēêе]": "e", r"[аãâāàä]": "a", r"[ùūû]": "u", r"[ôōòöõ]": "o", r"[ćç]": "c", r"[ïīìî]": "i",
-            r"[ż]": "z", r"[ ]": " ", r"[-]": "", r"[1]": "bat"
+            r"[ż]": "z", r"[ ]": " "
         }
         for pattern, replacement in diacritic_map.items():
             item[self.tag] = re.sub(pattern, replacement, item[self.tag])
@@ -51,7 +51,7 @@ class TextNormalizer:
         return item
 
     def remove_special_chars_whitelist(self, item):
-        """Removes disallowed special characters."""
+        """Removes not allowed special characters."""
         allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáéíóúüÁÉÍÓÚÜñÑ "
         if self.cp:
             allowed_chars += r"\.\,\?\¿\¡\!\;\:"
@@ -83,6 +83,12 @@ class TextNormalizer:
         return clean_data
 
 def main():
+    blacklist_terms = [
+        r"[(inint)]", r"[(inint(]", r"[(Inint)]", r"[(init)]",
+        r"[(gabe)]",r"[(Many speakers)]",
+        r"[(Ri)]",r"[(RI)]",r"[(RU)]",
+        r"[(MU)]",r"[-c}]",r"[-n}]"
+    ]
     json = "example_eu.json"
     data = cu.read_manifest(f"./manifests/{json}")
     eu_normalizer = TextNormalizer(lang='eu', cp=False)
