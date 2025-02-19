@@ -3,7 +3,7 @@ from tqdm import tqdm
 import corpus_utils as cu
 
 class TextNormalizer:
-    def __init__(self, lang: str, tag: str = "text", cp: bool = False, blacklist_terms = None):
+    def __init__(self, lang: str, tag: str = "text", cp: bool = False, remove_acronyms: bool=False, blacklist_terms = None):
         """
         Initializes the text cleaner with the necessary parameters.
         :param lang: Language ('es' or 'eu').
@@ -18,11 +18,8 @@ class TextNormalizer:
         self.cp = cp
         self.unclean_char_list = set()
         self.clean_char_list = set()
-        self.pattern = re.compile("|".join(blacklist_terms)) if blacklist_terms else None
-
-    def check_acronyms(self, item):
-        """Checks if the sentence contains acronyms (More than two consecutive capitals in a word)."""
-        return bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag]))
+        self.remove_acronyms = remove_acronyms
+        self.blacklist_terms = blacklist_terms
 
     def replace_diacritics(self, item):
         """Replaces diacritic characters with their normalized versions."""
@@ -57,8 +54,9 @@ class TextNormalizer:
         if self.cp:
             allowed_chars += ".,¿?¡!;:"
         allowed_chars_pattern = f"[^{allowed_chars}]"
-        if self.pattern:
-            item[self.tag] = self.pattern.sub("", item[self.tag])
+        if self.blacklist_terms:
+            for term in self.blacklist_terms:
+                item[self.tag] = re.sub(term, "", item[self.tag], flags=re.IGNORECASE)
         item[self.tag] = re.sub(allowed_chars_pattern, " ", item[self.tag])
         item[self.tag] = re.sub(r" +", " ", item[self.tag]).strip()
         if not self.cp:
@@ -68,28 +66,33 @@ class TextNormalizer:
     def clean_sentences(self, data):
         clean_data = []
         n = 0
+        m = 0
         for item in tqdm(data):
-            if not self.check_acronyms(item):
+            acronyms = bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag])) if self.remove_acronyms else False
+            if not acronyms:
                 self.unclean_char_list.update(set(item[self.tag]))
                 item = self.replace_diacritics(item)
                 item = self.remove_special_chars_whitelist(item)
-
-                clean_data.append(item)
+                if item["text"]:
+                    clean_data.append(item)
+                else:
+                    m += 1
                 self.clean_char_list.update(set(item[self.tag]))
             else:
                 n += 1
                 print("Sentence with acronyms:", item[self.tag])
         print(f"\nCharacter list before cleaning: Size = {len(self.unclean_char_list)}\n {sorted(self.unclean_char_list)}")
         print(f"\nCharacter list after cleaning: Size = {len(self.clean_char_list)}\n {sorted(self.clean_char_list)}")
-        print(f"Sentences with acronyms elminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)")
+        print(f"\nSentences with acronyms eliminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)") if self.remove_acronyms else None
+        print(f"\nTotal sentences eliminated: {n+m}/{len(data)} ({round(n+m / len(data), 2) * 100}%)")
         return clean_data
 
 def main():
-    blacklist_terms = [
-        r"[(inint)]", r"[(inint(]", r"[(Inint)]", r"[(init)]",
-        r"[(gabe)]",r"[(Many speakers)]",
-        r"[(Ri)]",r"[(RI)]",r"[(RU)]",
-        r"[(MU)]",r"[-c}]",r"[-n}]"
+    blacklist_terms =[
+        "\(inint\)", "\(inint\(", "\(Inint\)", "\(init\)",
+        "\(gabe\)","\(Many speakers\)",
+        "\(Ri\)","\(RI\)","\(RU\)",
+        "\(MU\)","\(LL\)","\(BO\)","\-c\}","\-n\}"
     ]
     json = "example_eu.json"
     data = cu.read_manifest(f"./manifests/{json}")
