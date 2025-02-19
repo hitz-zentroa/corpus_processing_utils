@@ -3,12 +3,13 @@ from tqdm import tqdm
 import corpus_utils as cu
 
 class TextNormalizer:
-    def __init__(self, lang: str, tag: str = "text", cp: bool = False):
+    def __init__(self, lang: str, tag: str = "text", cp: bool = False, blacklist_terms = None):
         """
         Initializes the text cleaner with the necessary parameters.
         :param lang: Language ('es' or 'eu').
         :param tag: Key field for the text in the data.
         :param cp: Whether to preserve Capitalization and Punctuation.
+        :param blacklist_terms: List of terms to remove (if provided).
         """
         if lang not in ['es', 'eu']:
             raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
@@ -17,6 +18,7 @@ class TextNormalizer:
         self.cp = cp
         self.unclean_char_list = set()
         self.clean_char_list = set()
+        self.pattern = re.compile("|".join(blacklist_terms)) if blacklist_terms else None
 
     def check_acronyms(self, item):
         """Checks if the sentence contains acronyms (More than two consecutive capitals in a word)."""
@@ -40,7 +42,6 @@ class TextNormalizer:
         }
         for pattern, replacement in diacritic_map.items():
             item[self.tag] = re.sub(pattern, replacement, item[self.tag])
-
         if self.lang == "eu":
             eu_specific = {
                 r"[É]": "E", r"[Á]": "A", r"[ÚÜ]": "U", r"[Ó]": "O", r"[Í]": "I",
@@ -54,10 +55,10 @@ class TextNormalizer:
         """Removes not allowed special characters."""
         allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáéíóúüÁÉÍÓÚÜñÑ "
         if self.cp:
-            allowed_chars += r"\.\,\?\¿\¡\!\;\:"
-
-        allowed_chars_pattern = f"[^{re.escape(allowed_chars)}]"
-
+            allowed_chars += ".,¿?¡!;:"
+        allowed_chars_pattern = f"[^{allowed_chars}]"
+        if self.pattern:
+            item[self.tag] = self.pattern.sub("", item[self.tag])
         item[self.tag] = re.sub(allowed_chars_pattern, " ", item[self.tag])
         item[self.tag] = re.sub(r" +", " ", item[self.tag]).strip()
         if not self.cp:
@@ -72,6 +73,7 @@ class TextNormalizer:
                 self.unclean_char_list.update(set(item[self.tag]))
                 item = self.replace_diacritics(item)
                 item = self.remove_special_chars_whitelist(item)
+
                 clean_data.append(item)
                 self.clean_char_list.update(set(item[self.tag]))
             else:
@@ -91,7 +93,7 @@ def main():
     ]
     json = "example_eu.json"
     data = cu.read_manifest(f"./manifests/{json}")
-    eu_normalizer = TextNormalizer(lang='eu', cp=False)
+    eu_normalizer = TextNormalizer(lang='eu', cp=False, blacklist_terms=blacklist_terms)
     clean_data = eu_normalizer.clean_sentences(data)
     json_clean=json.replace(".json","_clean.json")
     cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
