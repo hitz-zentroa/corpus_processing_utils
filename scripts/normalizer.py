@@ -3,23 +3,29 @@ from tqdm import tqdm
 import corpus_utils as cu
 
 class TextNormalizer:
-    def __init__(self, lang: str, tag: str = "text", cp: bool = False, remove_acronyms: bool=False, blacklist_terms = None):
+    def __init__(self, lang: str, tag: str = "text", keep_cp: bool = False, 
+                 remove_acronyms: bool = False, blacklist_terms = None, 
+                 min_duration: float = 0.025, max_duration: float = 240,
+                 verbose: bool = True):
         """
         Initializes the text cleaner with the necessary parameters.
-        :param lang: Language ('es' or 'eu').
+        :param lang: Language ('es' or 'eu') if Bilingual 'es+eu' is wanted just select 'es'.
         :param tag: Key field for the text in the data.
-        :param cp: Whether to preserve Capitalization and Punctuation.
+        :param keep_cp: Whether to preserve Capitalization and Punctuation.
         :param blacklist_terms: List of terms to remove (if provided).
         """
         if lang not in ['es', 'eu']:
             raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
         self.lang = lang.lower()
         self.tag = tag
-        self.cp = cp
+        self.keep_cp = keep_cp
         self.unclean_char_list = set()
         self.clean_char_list = set()
         self.remove_acronyms = remove_acronyms
         self.blacklist_terms = blacklist_terms
+        self.min_duration = min_duration
+        self.max_duration = max_duration
+        self.verbose = verbose
 
     def replace_diacritics(self, item):
         """Replaces diacritic characters with their normalized versions."""
@@ -51,7 +57,7 @@ class TextNormalizer:
     def remove_special_chars_whitelist(self, item):
         """Removes not allowed special characters."""
         allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZáéíóúüÁÉÍÓÚÜñÑ "
-        if self.cp:
+        if self.keep_cp:
             allowed_chars += ".,¿?¡!;:"
         allowed_chars_pattern = f"[^{allowed_chars}]"
         if self.blacklist_terms:
@@ -59,32 +65,41 @@ class TextNormalizer:
                 item[self.tag] = re.sub(term, "", item[self.tag], flags=re.IGNORECASE)
         item[self.tag] = re.sub(allowed_chars_pattern, " ", item[self.tag])
         item[self.tag] = re.sub(r" +", " ", item[self.tag]).strip()
-        if not self.cp:
+        if not self.keep_cp:
             item[self.tag] = item[self.tag].lower()
         return item
+    
+    def in_duration_threshold(self, item):
+        """Removes sentences out of min-max threshold"""
+        if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
+            return False
+        else:
+            return True
 
     def clean_sentences(self, data):
         clean_data = []
         n = 0
         m = 0
         for item in tqdm(data):
-            acronyms = bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag])) if self.remove_acronyms else False
-            if not acronyms:
-                self.unclean_char_list.update(set(item[self.tag]))
-                item = self.replace_diacritics(item)
-                item = self.remove_special_chars_whitelist(item)
-                if item["text"]:
-                    clean_data.append(item)
+            if True:
+                acronyms = bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag])) if self.remove_acronyms else False
+                if not acronyms:
+                    self.unclean_char_list.update(set(item[self.tag]))
+                    item = self.replace_diacritics(item)
+                    item = self.remove_special_chars_whitelist(item)
+                    if re.search(r"[A-Za-z]",item["text"]):
+                        clean_data.append(item)
+                    else:
+                        m += 1
+                    self.clean_char_list.update(set(item[self.tag]))
                 else:
-                    m += 1
-                self.clean_char_list.update(set(item[self.tag]))
-            else:
-                n += 1
-                print("Sentence with acronyms:", item[self.tag])
-        print(f"\nCharacter list before cleaning: Size = {len(self.unclean_char_list)}\n {sorted(self.unclean_char_list)}")
-        print(f"\nCharacter list after cleaning: Size = {len(self.clean_char_list)}\n {sorted(self.clean_char_list)}")
-        print(f"\nSentences with acronyms eliminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)") if self.remove_acronyms else None
-        print(f"\nTotal sentences eliminated: {n+m}/{len(data)} ({round(n+m / len(data), 2) * 100}%)")
+                    n += 1
+                    if self.verbose: print("Sentence with acronyms:", item[self.tag])
+        if self.verbose:
+            print(f"\nCharacter list before cleaning: Size = {len(self.unclean_char_list)}\n {sorted(self.unclean_char_list)}")
+            print(f"\nCharacter list after cleaning: Size = {len(self.clean_char_list)}\n {sorted(self.clean_char_list)}")
+            if self.remove_acronyms: print(f"\nSentences with acronyms eliminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)")
+            print(f"\nTotal sentences eliminated: {n+m}/{len(data)} ({round(n+m / len(data), 2) * 100}%)")
         return clean_data
 
 def main():
@@ -96,7 +111,7 @@ def main():
     ]
     json = "example_eu.json"
     data = cu.read_manifest(f"./manifests/{json}")
-    eu_normalizer = TextNormalizer(lang='eu', cp=False, blacklist_terms=blacklist_terms)
+    eu_normalizer = TextNormalizer(lang='eu', keep_cp=False, blacklist_terms=blacklist_terms)
     clean_data = eu_normalizer.clean_sentences(data)
     json_clean=json.replace(".json","_clean.json")
     cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
