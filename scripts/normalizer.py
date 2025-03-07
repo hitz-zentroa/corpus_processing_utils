@@ -12,7 +12,10 @@ class TextNormalizer:
         :param lang: Language ('es' or 'eu') if Bilingual 'es+eu' is wanted just select 'es'.
         :param tag: Key field for the text in the data.
         :param keep_cp: Whether to preserve Capitalization and Punctuation.
+        :param remove_acronyms: Will remove the sentences with acronyms if True
         :param blacklist_terms: List of terms to remove (if provided).
+        :param min/max_duration: duration threshold in seconds for the audios, will remove the sentence if it's out of bounds.
+        :param verbose: for logging info.
         """
         if lang not in ['es', 'eu']:
             raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
@@ -72,6 +75,7 @@ class TextNormalizer:
     def in_duration_threshold(self, item):
         """Removes sentences out of min-max threshold"""
         if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
+            if self.verbose: print("Removed (duration out of bounds):", item["audio_filepath"])
             return False
         else:
             return True
@@ -81,7 +85,7 @@ class TextNormalizer:
         n = 0
         m = 0
         for item in tqdm(data):
-            if True:
+            if self.in_duration_threshold(item):
                 acronyms = bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag])) if self.remove_acronyms else False
                 if not acronyms:
                     self.unclean_char_list.update(set(item[self.tag]))
@@ -91,6 +95,7 @@ class TextNormalizer:
                         clean_data.append(item)
                     else:
                         m += 1
+                        if self.verbose: print("Removed (no text on sentence):", item["audio_filepath"])
                     self.clean_char_list.update(set(item[self.tag]))
                 else:
                     n += 1
