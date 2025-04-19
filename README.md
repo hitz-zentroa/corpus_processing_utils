@@ -14,6 +14,6 @@ The data is managed using the Nvidia NeMo's "manifest.json" format.
   - MP3.
 
 **Unsupported features:**
-- Numeric character management.
+- Expansion of numeric characters.
 - Expansion of acronyms and abbreviations.
 
