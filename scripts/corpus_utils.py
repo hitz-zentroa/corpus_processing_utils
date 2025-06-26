@@ -23,16 +23,27 @@ def write_manifest(manifest_filepath, data, ensure_ascii: bool = False, return_m
     else:
         return None
     
-def manifest_time_stats(manifest):
+def manifest_time_stats(manifest, return_stats: bool = False):
     data = read_manifest(manifest)
-    duration = [float(item["duration"]) for item in data]
-    filename = os.path.split(manifest)[1]
-    print(f"=============[ {filename} ]=============")
-    print("\tMin time: ",round(min(duration),2), "s")
-    print("\tMean time:",round(statistics.mean(duration),2), "s")
-    print("\tMax time: ",round(max(duration),2), "s")
-    print("\n\tTotal time (sum):",round(sum(duration),2), "s |",round(sum(duration)/3600,2), 'h')
-    print("\tTotal sentences: ",len(data))
-    print("\n\tMedian time:",round(statistics.median(duration),2), "s")
-    print("\tTotal time (median):",round(statistics.median(duration)*len(duration),2), "s |",round(statistics.median(duration)*len(duration)/3600,2), 'h')
-    print(f"==============={'='*len(filename)}===============")
+    duration = [float(item['duration']) for item in data]
+    stats = {
+        "filename": os.path.split(manifest)[1],
+        "t_min": round(min(duration),2),
+        "t_mean": round(statistics.mean(duration),2),
+        "t_median": round(statistics.median(duration),2),
+        "t_max": round(max(duration),2),
+        "t_total": [round(sum(duration),2), round(sum(duration)/3600,2)],
+        "t_total_median": [round(statistics.median(duration)*len(duration),2), round(statistics.median(duration)*len(duration)/3600,2)],
+        "sentences": len(data)
+    }
+    print(f"=============[ {stats['filename']} ]=============")
+    print("\tMin time: ",stats['t_min'], "s")
+    print("\tMean time:",stats['t_mean'], "s")
+    print("\tMax time: ",stats['t_max'], "s")
+    print("\n\tTotal time (sum):",stats['t_total'][0], "s |",stats['t_total'][1], 'h')
+    print("\tTotal sentences: ",stats['sentences'])
+    print("\n\tMedian time:",stats['t_median'], "s")
+    print("\tTotal time (median):",stats['t_total_median'][0], "s |",stats['t_total_median'][1], 'h')
+    print(f"==============={'='*len(stats['filename'])}===============")
+    if return_stats:
+        return stats
