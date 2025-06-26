@@ -80,11 +80,11 @@ class TextNormalizer:
             else:
                 return True
         except:
-        if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
-            if self.verbose: print("Removed (duration out of bounds):", item["audio_filepath"])
-            return False
-        else:
-            return True
+            if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
+                if self.verbose: print("Removed (duration out of bounds):", item["audio_filepath"])
+                return False
+            else:
+                return True
 
     def clean_sentences(self, data):
         clean_data = []
