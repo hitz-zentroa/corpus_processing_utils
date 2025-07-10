@@ -1,12 +1,15 @@
 import jiwer
+import os
 from normalizer import TextNormalizer
+import corpus_utils as cu
 
-def calculate_wer(data, normalizer = TextNormalizer, pred_text_tag: str="pred_text", manifest_name: str="sample.json", verbose: bool=True, return_wer: bool=False):
+def calculate_wer(manifest_filepath, normalizer = TextNormalizer, pred_text_tag: str="pred_text", verbose: bool=True, return_wer: bool=False):
     """ 
     Calculate WER with and without C&P 
     Returns the original data with those 2 calculated WERs per item
     It also returns the total and mean WER for the dataset
     """
+    data = cu.read_manifest(manifest_filepath)
     normalizer_params = vars(normalizer).copy()
     normalizer_params["tag"] = pred_text_tag
     _ = normalizer_params.pop('unclean_char_list')
@@ -42,21 +45,19 @@ def calculate_wer(data, normalizer = TextNormalizer, pred_text_tag: str="pred_te
     total_wer = jiwer.wer(total_reference_clean.strip(), total_pred_clean.strip())
     mean_wer_cp = sum(wer_cp_list)/len(wer_cp_list)   
     mean_wer = sum(wer_list)/len(wer_list)
-    if verbose:
-        print(f"=============[ {manifest_name} ]=============")
-        print(f"\t Mean WER C&P: {round(mean_wer_cp*100,2)} %")
-        print(f"\t     Mean WER: {round(mean_wer*100,2)} %")
-        print(f"\tTotal WER C&P: {round(total_wer_cp*100,2)} %")
-        print(f"\t    Total WER: {round(total_wer*100,2)} %")
-        print(f"==============={'='*len(manifest_name)}===============")
-        
     result = {
-        "filename": manifest_name.replace(".json",""),
+        "filename": (os.path.split(manifest_filepath)[1]).replace(".json",""),
         "mean_wer_cp": mean_wer_cp,
         "mean_wer": mean_wer,
         "total_wer_cp": total_wer_cp,
         "total_wer": total_wer
         }
-    
+    if verbose:
+        print(f"=============[ {result['filename']} ]=============")
+        print(f"\t Mean WER C&P: {round(result['mean_wer_cp']*100,2)} %")
+        print(f"\t     Mean WER: {round(result['mean_wer']*100,2)} %")
+        print(f"\tTotal WER C&P: {round(result['total_wer_cp']*100,2)} %")
+        print(f"\t    Total WER: {round(result['total_wer']*100,2)} %")
+        print(f"==============={'='*len(result['filename'])}===============")    
     if return_wer: 
         return new_data, result

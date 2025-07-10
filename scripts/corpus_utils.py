@@ -1,6 +1,7 @@
 import json
 import os
 import statistics
+import openpyxl
 
 def read_manifest(manifest_filepath):
     print("Reading:",manifest_filepath)
@@ -47,3 +48,39 @@ def manifest_time_stats(manifest, return_stats: bool = False):
     print(f"==============={'='*len(stats['filename'])}===============")
     if return_stats:
         return stats
+    
+def stats2xlsx(stats_list, dst_xlsx_filepath):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Stats"
+    headers = ["filename", "t_min", "t_mean", "t_max", "t_total (h)", "sentences"]
+    ws.append(headers)
+    for stat in stats_list:
+        row = [
+            stat["filename"],
+            stat["t_min"],
+            stat["t_mean"],
+            stat["t_max"],
+            stat["t_total"][1],
+            stat["sentences"]
+        ]
+        ws.append(row)
+    wb.save(dst_xlsx_filepath)
+    
+def resultwer2xlsx(resultwer_list, dst_xlsx_filepath):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "WER Results"
+    headers = ["filename", "mean_wer_cp", "mean_wer", "total_wer_cp", "total_wer"]
+    ws.append(headers)
+    for resultwer in resultwer_list:
+        row = [
+            resultwer["filename"],
+            resultwer["t_min"],
+            resultwer["t_mean"],
+            resultwer["t_max"],
+            resultwer["t_total"][1],
+            resultwer["sentences"]
+        ]
+        ws.append(row)
+    wb.save(dst_xlsx_filepath)

@@ -73,18 +73,15 @@ class TextNormalizer:
         return item
     
     def in_duration_threshold(self, item):
-        """Removes sentences out of min-max threshold"""
-        try:
-            if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
-                return False
-            else:
-                return True
-        except:
-            if item["duration"] < self.min_duration or item["duration"] > self.max_duration:
-                if self.verbose: print("Removed (duration out of bounds):", item["audio_filepath"])
-                return False
-            else:
-                return True
+        """Returns True if duration is within min/max threshold or missing; False if duration exists and is out of bounds."""
+        duration = item.get("duration")
+        if duration is None:
+            return True
+        if not (self.min_duration <= duration <= self.max_duration):
+            if self.verbose:
+                print("Removed (duration out of bounds):", item.get("audio_filepath", "Unknown file"))
+            return False
+        return True
 
     def clean_sentences(self, data):
         clean_data = []
