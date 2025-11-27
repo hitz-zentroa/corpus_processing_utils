@@ -115,14 +115,14 @@ class TextNormalizer:
             n = len(acronyms_entries)
             m = len(emptytext_entries)
             total = len(data)
-            logging.info(f"- Total: {n+m}/{total} ({round(n+m / total, 2) * 100}%)")
+            logging.info(f"- Total: {n+m}/{total} ({round(100*(n+m) / total, 2)}%)")
             logging.info(f"- Entries with Acronyms:")
-            logging.info(f"  · {n}/{total} ({round(n / total, 2) * 100}%)")
+            logging.info(f"  · {n}/{total} ({round(100*n / total, 2)}%)")
             if self.verbose_type == 'all':
                 for entry in emptytext_entries:
                     logging.info(f"    audio: {entry['audio_filepath']}")
             logging.info(f"- Entries without Text:")
-            logging.info(f"  · {m}/{total} ({round(m / total, 2) * 100}%)")
+            logging.info(f"  · {m}/{total} ({round(100*m / total, 2)}%)")
             if self.verbose_type == 'all':
                 for entry in acronyms_entries:
                     logging.info(f"    audio: {entry['audio_filepath']}")
