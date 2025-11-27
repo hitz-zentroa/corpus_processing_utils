@@ -1,5 +1,6 @@
 import jiwer
 import os
+import logging
 from normalizer import TextNormalizer
 import corpus_utils as cu
 
@@ -53,11 +54,11 @@ def calculate_wer(manifest_filepath, normalizer = TextNormalizer, pred_text_tag:
         "total_wer": total_wer
         }
     if verbose:
-        print(f"=============[ {result['filename']} ]=============")
-        print(f"\t Mean WER C&P: {round(result['mean_wer_cp']*100,2)} %")
-        print(f"\t     Mean WER: {round(result['mean_wer']*100,2)} %")
-        print(f"\tTotal WER C&P: {round(result['total_wer_cp']*100,2)} %")
-        print(f"\t    Total WER: {round(result['total_wer']*100,2)} %")
-        print(f"==============={'='*len(result['filename'])}===============")    
+        logging.info(f"=============[ {result['filename']} ]=============")
+        logging.info(f"\t Mean WER C&P: {round(result['mean_wer_cp']*100,2)} %")
+        logging.info(f"\t     Mean WER: {round(result['mean_wer']*100,2)} %")
+        logging.info(f"\tTotal WER C&P: {round(result['total_wer_cp']*100,2)} %")
+        logging.info(f"\t    Total WER: {round(result['total_wer']*100,2)} %")
+        logging.info(f"==============={'='*len(result['filename'])}===============")    
     if return_wer: 
         return new_data, result

@@ -1,38 +1,41 @@
 import re
+import logging
 from tqdm import tqdm
 import corpus_utils as cu
 
 class TextNormalizer:
     def __init__(self, lang: str, tag: str = "text", keep_cp: bool = False, 
-                 remove_acronyms: bool = False, blacklist_terms = None, 
-                 min_duration: float = 0.025, max_duration: float = 240,
-                 verbose: bool = True):
+                 remove_acronyms: bool = False, remove_emptytext: bool = True, blacklist_terms = None, 
+                 min_duration: float = 0.05, max_duration: float = 240,
+                 verbose: bool = True, verbose_type: str = "simple"):
         """
-        Initializes the text cleaner with the necessary parameters.
+        Initializes the sentence cleaner with the necessary parameters.
         :param lang: Language ('es' or 'eu') if Bilingual 'es+eu' is wanted just select 'es'.
         :param tag: Key field for the text in the data.
         :param keep_cp: Whether to preserve Capitalization and Punctuation.
-        :param remove_acronyms: Will remove the sentences with acronyms if True
+        :param remove_acronyms: Whether to remove entries with acronyms
+        :param remove_emptytext: Whether to remove emptytext entries
         :param blacklist_terms: List of terms to remove (if provided).
         :param min/max_duration: duration threshold in seconds for the audios, will remove the sentence if it's out of bounds.
-        :param verbose: for logging info.
+        :param verbose: Whether to show logging info.
+        :param verbose_type: 'simple' or 'all'
         """
-        if lang not in ['es', 'eu']:
-            raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
         self.lang = lang.lower()
+        if self.lang not in ['es', 'eu']:
+            raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
         self.tag = tag
         self.keep_cp = keep_cp
         self.unclean_char_list = set()
         self.clean_char_list = set()
         self.remove_acronyms = remove_acronyms
+        self.remove_emptytext = remove_emptytext
         self.blacklist_terms = blacklist_terms
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.verbose = verbose
-
-    def replace_diacritics(self, item):
-        """Replaces diacritic characters with their normalized versions."""
-        diacritic_map = {
+        self.verbose_type = verbose_type
+        
+        self.diacritic_map = {
             r"[Æ]": "Ae", r"[Œ]": "Oe", r"[Ж]": "Zh", r"[Х]": "H", r"[Щ]": "Shch", r"[Ш]": "Sh", r"[Ф]": "F",
             r"[Ч]": "Ch", r"[Ц]": "Ts", r"[Þ]": "Th", r"[Α]": "A", r"[Β]": "V", r"[Γ]": "G", r"[Δ]": "D",
             r"[Ζ]": "Z", r"[Η]": "I", r"[Θ]": "Th", r"[Κ]": "K", r"[Λ]": "L", r"[Μ]": "M", r"[Ν]": "N",
@@ -46,7 +49,10 @@ class TextNormalizer:
             r"[èëēêе]": "e", r"[аãâāàä]": "a", r"[ùūû]": "u", r"[ôōòöõ]": "o", r"[ćç]": "c", r"[ïīìî]": "i",
             r"[ż]": "z", r"[ ]": " "
         }
-        for pattern, replacement in diacritic_map.items():
+
+    def replace_diacritics(self, item):
+        """Replaces diacritic characters with their normalized versions."""
+        for pattern, replacement in self.diacritic_map.items():
             item[self.tag] = re.sub(pattern, replacement, item[self.tag])
         if self.lang == "eu":
             eu_specific = {
@@ -79,48 +85,66 @@ class TextNormalizer:
             return True
         if not (self.min_duration <= duration <= self.max_duration):
             if self.verbose:
-                print("Removed (duration out of bounds):", item.get("audio_filepath", "Unknown file"))
+                logging.info(f"Removed (duration out of bounds): {item.get('audio_filepath', 'Unknown file')}")
             return False
         return True
 
     def clean_sentences(self, data):
         clean_data = []
-        n = 0
-        m = 0
-        for item in tqdm(data):
+        emptytext_entries = []
+        acronyms_entries = []
+        for item in tqdm(data, disable=not self.verbose):
             if self.in_duration_threshold(item):
                 acronyms = bool(re.search(r'\b[\w\d]*[A-Z]{2,}[\w\d]*\b', item[self.tag])) if self.remove_acronyms else False
                 if not acronyms:
                     self.unclean_char_list.update(set(item[self.tag]))
                     item = self.replace_diacritics(item)
                     item = self.remove_special_chars_whitelist(item)
-                    if re.search(r"[A-Za-z]",item["text"]):
-                        clean_data.append(item)
+                    if self.remove_emptytext and not re.search(r"[A-Za-z]",item["text"]):
+                        emptytext_entries.append(item)
                     else:
-                        m += 1
-                        if self.verbose: print("Removed (no text on sentence):", item["audio_filepath"])
+                        clean_data.append(item)
                     self.clean_char_list.update(set(item[self.tag]))
                 else:
-                    n += 1
-                    if self.verbose: print("Sentence with acronyms:", item[self.tag])
+                    acronyms_entries.append(item)
         if self.verbose:
-            print(f"\nCharacter list before cleaning: Size = {len(self.unclean_char_list)}\n {sorted(self.unclean_char_list)}")
-            print(f"\nCharacter list after cleaning: Size = {len(self.clean_char_list)}\n {sorted(self.clean_char_list)}")
-            if self.remove_acronyms: print(f"\nSentences with acronyms eliminated: {n}/{len(data)} ({round(n / len(data), 2) * 100}%)")
-            print(f"\nTotal sentences eliminated: {n+m}/{len(data)} ({round(n+m / len(data), 2) * 100}%)")
+            logging.info(f"::::: Character List :::::")
+            logging.info(f"- Before cleaning (size: {len(self.unclean_char_list)})\n  {sorted(self.unclean_char_list)}")
+            logging.info(f"- After cleaning (size: {len(self.clean_char_list)})\n  {sorted(self.clean_char_list)}")
+            logging.info(f"\n::::: Removed sentences :::::")
+            n = len(acronyms_entries)
+            m = len(emptytext_entries)
+            total = len(data)
+            logging.info(f"- Total: {n+m}/{total} ({round(n+m / total, 2) * 100}%)")
+            logging.info(f"- Entries with Acronyms:")
+            logging.info(f"  · {n}/{total} ({round(n / total, 2) * 100}%)")
+            if self.verbose_type == 'all':
+                for entry in emptytext_entries:
+                    logging.info(f"    audio: {entry['audio_filepath']}")
+            logging.info(f"- Entries without Text:")
+            logging.info(f"  · {m}/{total} ({round(m / total, 2) * 100}%)")
+            if self.verbose_type == 'all':
+                for entry in acronyms_entries:
+                    logging.info(f"    audio: {entry['audio_filepath']}")
+                    logging.info(f"     text: {entry[self.tag]}")
         return clean_data
+    
+    def __call__(self,data):
+        return self.clean_sentences(data)
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    
     blacklist_terms =[
         "\(inint\)", "\(inint\(", "\(Inint\)", "\(init\)",
         "\(gabe\)","\(Many speakers\)",
         "\(Ri\)","\(RI\)","\(RU\)",
         "\(MU\)","\(LL\)","\(BO\)","\-c\}","\-n\}"
     ]
-    json = "example_eu.json"
+    json = "example_es.json"
     data = cu.read_manifest(f"./manifests/{json}")
-    eu_normalizer = TextNormalizer(lang='eu', keep_cp=False, blacklist_terms=blacklist_terms)
-    clean_data = eu_normalizer.clean_sentences(data)
+    eu_normalizer = TextNormalizer(lang='es', keep_cp=False, blacklist_terms=blacklist_terms, verbose=True, verbose_type='all')
+    clean_data = eu_normalizer(data)
     json_clean=json.replace(".json","_clean.json")
     cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
 
