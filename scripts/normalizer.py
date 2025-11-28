@@ -1,12 +1,11 @@
 import re
 import logging
 from tqdm import tqdm
-import corpus_utils as cu
 
 class TextNormalizer:
     def __init__(self, lang: str, tag: str = "text", keep_cp: bool = False, 
                  remove_acronyms: bool = False, remove_emptytext: bool = True, blacklist_terms = None, 
-                 min_duration: float = 0.05, max_duration: float = 240,
+                 min_duration: float = 0.025, max_duration: float = 240,
                  verbose: bool = True, verbose_type: str = "simple"):
         """
         Initializes the sentence cleaner with the necessary parameters.
@@ -25,8 +24,6 @@ class TextNormalizer:
             raise ValueError(f"ERROR: Language '{lang}' NOT Supported.\n Supported languages:\n\t- Spanish: 'es'.\n\t- Basque: 'eu'")
         self.tag = tag
         self.keep_cp = keep_cp
-        self.unclean_char_list = set()
-        self.clean_char_list = set()
         self.remove_acronyms = remove_acronyms
         self.remove_emptytext = remove_emptytext
         self.blacklist_terms = blacklist_terms
@@ -34,7 +31,9 @@ class TextNormalizer:
         self.max_duration = max_duration
         self.verbose = verbose
         self.verbose_type = verbose_type
-        
+
+        self.unclean_char_list = set()
+        self.clean_char_list = set()
         self.diacritic_map = {
             r"[Æ]": "Ae", r"[Œ]": "Oe", r"[Ж]": "Zh", r"[Х]": "H", r"[Щ]": "Shch", r"[Ш]": "Sh", r"[Ф]": "F",
             r"[Ч]": "Ch", r"[Ц]": "Ts", r"[Þ]": "Th", r"[Α]": "A", r"[Β]": "V", r"[Γ]": "G", r"[Δ]": "D",
@@ -131,22 +130,3 @@ class TextNormalizer:
     
     def __call__(self,data):
         return self.clean_sentences(data)
-
-def main():
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    
-    blacklist_terms =[
-        "\(inint\)", "\(inint\(", "\(Inint\)", "\(init\)",
-        "\(gabe\)","\(Many speakers\)",
-        "\(Ri\)","\(RI\)","\(RU\)",
-        "\(MU\)","\(LL\)","\(BO\)","\-c\}","\-n\}"
-    ]
-    json = "example_es.json"
-    data = cu.read_manifest(f"./manifests/{json}")
-    eu_normalizer = TextNormalizer(lang='es', keep_cp=False, blacklist_terms=blacklist_terms, verbose=True, verbose_type='all')
-    clean_data = eu_normalizer(data)
-    json_clean=json.replace(".json","_clean.json")
-    cu.write_manifest(f"./manifests/processed/{json_clean}", clean_data)
-
-if __name__=="__main__":
-    main()
